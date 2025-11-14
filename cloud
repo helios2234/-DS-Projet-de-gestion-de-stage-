@@ -1,0 +1,1178 @@
+import React, { useState } from 'react';
+import { User, Building2, Shield, Users, BookOpen, Search, Plus, Mail, Phone, MapPin, Calendar, FileText, CheckCircle, XCircle, Clock, Bell, Download, Upload, Eye, Edit, Trash2, LogOut, Award, TrendingUp, Cloud, Folder, File, Image, Video, Music, Archive, HardDrive, Activity, Share2, Copy, Move } from 'lucide-react';
+
+const StageManagementSystem = () => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userType, setUserType] = useState(null);
+  
+  // Cloud Storage State - Basé sur StorageVirtualNode
+  const [cloudStorage, setCloudStorage] = useState({
+    nodes: [
+      {
+        nodeId: 'node-yaoundé-1',
+        totalStorage: 100 * 1024 * 1024 * 1024, // 100 GB en bytes
+        usedStorage: 35 * 1024 * 1024 * 1024, // 35 GB utilisés
+        bandwidth: 100 * 1000000, // 100 Mbps en bits/sec
+        networkUtilization: 0,
+        location: 'Yaoundé',
+        status: 'active'
+      },
+      {
+        nodeId: 'node-douala-1',
+        totalStorage: 150 * 1024 * 1024 * 1024,
+        usedStorage: 48 * 1024 * 1024 * 1024,
+        bandwidth: 150 * 1000000,
+        networkUtilization: 0,
+        location: 'Douala',
+        status: 'active'
+      }
+    ],
+    activeTransfers: {},
+    storedFiles: {}
+  });
+
+  const [cloudFiles, setCloudFiles] = useState([
+    { 
+      id: 1, 
+      name: 'CV_Marie_Kamga.pdf', 
+      size: 2.5 * 1024 * 1024, // 2.5 MB
+      type: 'application/pdf',
+      category: 'cv',
+      userId: 1,
+      userType: 'etudiants',
+      uploadDate: '2025-11-10',
+      nodeId: 'node-yaoundé-1',
+      chunks: 5,
+      checksum: 'a3d5e6f7g8h9i0j1',
+      shared: false,
+      sharedWith: [],
+      path: '/cv',
+      status: 'completed'
+    },
+    { 
+      id: 2, 
+      name: 'Rapport_Stage_MTN.docx', 
+      size: 15 * 1024 * 1024,
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      category: 'rapport',
+      userId: 1,
+      userType: 'etudiants',
+      uploadDate: '2025-09-15',
+      nodeId: 'node-yaoundé-1',
+      chunks: 8,
+      checksum: 'b4e6f7g8h9i0j1k2',
+      shared: true,
+      sharedWith: [{ id: 1, type: 'encadreurs' }],
+      path: '/rapports',
+      status: 'completed'
+    },
+    { 
+      id: 3, 
+      name: 'Lettre_Motivation.pdf', 
+      size: 1.8 * 1024 * 1024,
+      type: 'application/pdf',
+      category: 'document',
+      userId: 2,
+      userType: 'etudiants',
+      uploadDate: '2025-11-12',
+      nodeId: 'node-douala-1',
+      chunks: 4,
+      checksum: 'c5f7g8h9i0j1k2l3',
+      shared: false,
+      sharedWith: [],
+      path: '/documents',
+      status: 'completed'
+    }
+  ]);
+
+  const [currentFolder, setCurrentFolder] = useState('/');
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState({});
+
+  const [users, setUsers] = useState({
+    etudiants: [
+      { id: 1, nom: 'Kamga', prenom: 'Marie', email: 'marie.kamga@student.cm', tel: '+237 670 123 456', universite: 'Université de Yaoundé I', niveau: 'Licence 3', filiere: 'Informatique', ville: 'Yaoundé', cv: 'cv_marie.pdf', statut: 'actif', cloudQuota: 10 * 1024 * 1024 * 1024 },
+      { id: 2, nom: 'Nkolo', prenom: 'Paul', email: 'paul.nkolo@student.cm', tel: '+237 680 234 567', universite: 'Université de Douala', niveau: 'Master 1', filiere: 'Gestion', ville: 'Douala', cv: 'cv_paul.pdf', statut: 'actif', cloudQuota: 10 * 1024 * 1024 * 1024 }
+    ],
+    entreprises: [
+      { id: 1, nom: 'MTN Cameroun', email: 'rh@mtn.cm', tel: '+237 222 123 456', secteur: 'Télécommunications', ville: 'Yaoundé', adresse: 'Bastos, Yaoundé', responsable: 'M. Ateba', statut: 'verifie', cloudQuota: 50 * 1024 * 1024 * 1024 },
+      { id: 2, nom: 'Orange Cameroun', email: 'stages@orange.cm', tel: '+237 233 234 567', secteur: 'Télécommunications', ville: 'Douala', adresse: 'Akwa, Douala', responsable: 'Mme Mbarga', statut: 'verifie', cloudQuota: 50 * 1024 * 1024 * 1024 }
+    ],
+    parents: [
+      { id: 1, nom: 'Kamga', prenom: 'Jean', email: 'jean.kamga@email.cm', tel: '+237 690 111 222', etudiantId: 1, relation: 'Père', cloudQuota: 5 * 1024 * 1024 * 1024 }
+    ],
+    encadreurs: [
+      { id: 1, nom: 'Fouda', prenom: 'Dr. Samuel', email: 's.fouda@univ.cm', tel: '+237 670 333 444', universite: 'Université de Yaoundé I', specialite: 'Informatique', statut: 'actif', cloudQuota: 20 * 1024 * 1024 * 1024 }
+    ],
+    admin: [
+      { id: 1, nom: 'Admin', prenom: 'Système', email: 'admin@stagecam.cm', tel: '+237 222 000 000', role: 'super_admin', cloudQuota: 1000 * 1024 * 1024 * 1024 }
+    ]
+  });
+
+  const [stages, setStages] = useState([
+    { id: 1, titre: 'Stage Développeur Web', entrepriseId: 1, description: 'Développement applications web React et Node.js', duree: '3 mois', debut: '2025-06-01', domaine: 'Informatique', ville: 'Yaoundé', remuneration: '100000 FCFA', places: 2, statut: 'ouvert', competences: ['React', 'Node.js', 'MongoDB'] },
+    { id: 2, titre: 'Stage Marketing Digital', entrepriseId: 2, description: 'Gestion réseaux sociaux et campagnes publicitaires', duree: '2 mois', debut: '2025-07-01', domaine: 'Marketing', ville: 'Douala', remuneration: '80000 FCFA', places: 1, statut: 'ouvert', competences: ['SEO', 'Social Media', 'Google Ads'] }
+  ]);
+
+  const [candidatures, setCandidatures] = useState([
+    { id: 1, stageId: 1, etudiantId: 1, datePostulation: '2025-11-10', statut: 'en_attente', lettre: 'Motivé par...', documents: ['cv.pdf', 'lettre.pdf'] },
+    { id: 2, stageId: 2, etudiantId: 2, datePostulation: '2025-11-12', statut: 'accepte', lettre: 'Je souhaite...', documents: ['cv.pdf'] }
+  ]);
+
+  const [rapports, setRapports] = useState([
+    { id: 1, etudiantId: 1, stageId: 1, titre: 'Rapport de stage', dateDepot: '2025-09-15', statut: 'soumis', fichier: 'rapport_marie.pdf', note: null }
+  ]);
+
+  const [evaluations, setEvaluations] = useState([
+    { id: 1, candidatureId: 2, etudiantId: 2, entrepriseId: 2, noteEntreprise: 17, commentaireEntreprise: 'Excellent travail', encadreurId: 1, noteEncadreur: 16, commentaireEncadreur: 'Très bon rapport' }
+  ]);
+
+  // Fonctions Cloud - Basées sur StorageVirtualNode
+
+  const calculateChunkSize = (fileSize) => {
+    if (fileSize < 10 * 1024 * 1024) { // < 10 MB
+      return 512 * 1024; // 512 KB
+    } else if (fileSize < 100 * 1024 * 1024) { // < 100 MB
+      return 2 * 1024 * 1024; // 2 MB
+    } else {
+      return 10 * 1024 * 1024; // 10 MB
+    }
+  };
+
+  const generateChunks = (fileId, fileSize) => {
+    const chunkSize = calculateChunkSize(fileSize);
+    const numChunks = Math.ceil(fileSize / chunkSize);
+    const chunks = [];
+    
+    for (let i = 0; i < numChunks; i++) {
+      chunks.push({
+        chunkId: i,
+        size: Math.min(chunkSize, fileSize - i * chunkSize),
+        checksum: `${fileId}-chunk-${i}`,
+        status: 'pending'
+      });
+    }
+    return chunks;
+  };
+
+  const findBestNode = (fileSize) => {
+    // Trouve le nœud avec le plus d'espace disponible
+    let bestNode = null;
+    let maxAvailable = 0;
+
+    cloudStorage.nodes.forEach(node => {
+      const available = node.totalStorage - node.usedStorage;
+      if (available >= fileSize && available > maxAvailable) {
+        maxAvailable = available;
+        bestNode = node;
+      }
+    });
+
+    return bestNode;
+  };
+
+  const initiateFileTransfer = (file, userId, userType) => {
+    const node = findBestNode(file.size);
+    
+    if (!node) {
+      alert('Espace de stockage insuffisant sur tous les nœuds');
+      return null;
+    }
+
+    const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const chunks = generateChunks(fileId, file.size);
+
+    const newFile = {
+      id: cloudFiles.length + 1,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      category: determineCategory(file.type),
+      userId: userId,
+      userType: userType,
+      uploadDate: new Date().toISOString().split('T')[0],
+      nodeId: node.nodeId,
+      chunks: chunks.length,
+      checksum: fileId,
+      shared: false,
+      sharedWith: [],
+      path: currentFolder,
+      status: 'uploading'
+    };
+
+    // Simuler le transfert par chunks
+    setUploadProgress({ [fileId]: { current: 0, total: chunks.length } });
+
+    // Mise à jour du stockage du nœud
+    setCloudStorage(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => 
+        n.nodeId === node.nodeId 
+          ? { ...n, usedStorage: n.usedStorage + file.size }
+          : n
+      )
+    }));
+
+    return newFile;
+  };
+
+  const simulateUpload = (file) => {
+    const newFile = initiateFileTransfer(file, currentUser.id, userType);
+    if (!newFile) return;
+
+    // Simulation du transfert chunk par chunk
+    let chunksUploaded = 0;
+    const totalChunks = newFile.chunks;
+
+    const uploadInterval = setInterval(() => {
+      chunksUploaded++;
+      setUploadProgress(prev => ({
+        ...prev,
+        [newFile.checksum]: { current: chunksUploaded, total: totalChunks }
+      }));
+
+      if (chunksUploaded >= totalChunks) {
+        clearInterval(uploadInterval);
+        newFile.status = 'completed';
+        setCloudFiles(prev => [...prev, newFile]);
+        setUploadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[newFile.checksum];
+          return newProgress;
+        });
+        alert(`Fichier "${file.name}" téléchargé avec succès sur ${newFile.nodeId}!`);
+      }
+    }, 500);
+  };
+
+  const determineCategory = (fileType) => {
+    if (fileType.includes('pdf')) return 'document';
+    if (fileType.includes('image')) return 'image';
+    if (fileType.includes('video')) return 'video';
+    if (fileType.includes('audio')) return 'audio';
+    if (fileType.includes('word') || fileType.includes('document')) return 'rapport';
+    return 'other';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getStoragePercentage = (nodeId) => {
+    const node = cloudStorage.nodes.find(n => n.nodeId === nodeId);
+    if (!node) return 0;
+    return Math.round((node.usedStorage / node.totalStorage) * 100);
+  };
+
+  const getUserStorageUsed = (userId, userType) => {
+    return cloudFiles
+      .filter(f => f.userId === userId && f.userType === userType)
+      .reduce((total, file) => total + file.size, 0);
+  };
+
+  const deleteFile = (fileId) => {
+    const file = cloudFiles.find(f => f.id === fileId);
+    if (!file) return;
+
+    // Libérer l'espace sur le nœud
+    setCloudStorage(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => 
+        n.nodeId === file.nodeId 
+          ? { ...n, usedStorage: n.usedStorage - file.size }
+          : n
+      )
+    }));
+
+    setCloudFiles(prev => prev.filter(f => f.id !== fileId));
+    alert('Fichier supprimé avec succès');
+  };
+
+  const shareFile = (fileId, targetUserId, targetUserType) => {
+    setCloudFiles(prev => prev.map(f => 
+      f.id === fileId 
+        ? { 
+            ...f, 
+            shared: true, 
+            sharedWith: [...f.sharedWith, { id: targetUserId, type: targetUserType }]
+          }
+        : f
+    ));
+    alert('Fichier partagé avec succès');
+  };
+
+  const getFileIcon = (type) => {
+    if (type.includes('pdf') || type.includes('document')) return <FileText className="w-8 h-8" />;
+    if (type.includes('image')) return <Image className="w-8 h-8" />;
+    if (type.includes('video')) return <Video className="w-8 h-8" />;
+    if (type.includes('audio')) return <Music className="w-8 h-8" />;
+    return <File className="w-8 h-8" />;
+  };
+
+  const handleLogin = (email, password, type) => {
+    const userList = users[type];
+    const user = userList?.find(u => u.email === email);
+    if (user) {
+      setCurrentUser(user);
+      setUserType(type);
+    } else {
+      alert('Identifiants incorrects');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setUserType(null);
+  };
+
+  if (!currentUser) {
+    return <LoginPage />;
+  }
+
+  function LoginPage() {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [selectedType, setSelectedType] = useState('etudiants');
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-600 via-yellow-500 to-red-600 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="bg-gradient-to-r from-green-600 to-yellow-500 p-4 rounded-full">
+                <BookOpen className="w-12 h-12 text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800">StageCam Cloud</h1>
+            <p className="text-gray-600 mt-2">Plateforme de Gestion de Stages - Cameroun</p>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Type de compte</label>
+            <select 
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+              <option value="etudiants">Étudiant</option>
+              <option value="entreprises">Entreprise</option>
+              <option value="encadreurs">Encadreur Académique</option>
+              <option value="parents">Parent/Tuteur</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="votre.email@exemple.cm"
+              />
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            onClick={() => handleLogin(email, password, selectedType)}
+            className="w-full bg-gradient-to-r from-green-600 to-yellow-500 text-white py-3 rounded-lg font-semibold hover:from-green-700 hover:to-yellow-600 transition shadow-lg"
+          >
+            Se connecter
+          </button>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <p className="text-xs text-gray-500 text-center">
+              Exemples:<br/>
+              Étudiant: marie.kamga@student.cm<br/>
+              Entreprise: rh@mtn.cm<br/>
+              Admin: admin@stagecam.cm
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const DashboardLayout = ({ children, title }) => (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <div className="bg-gradient-to-r from-green-600 to-yellow-500 p-2 rounded-lg">
+                <Cloud className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-800">StageCam Cloud</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-800">{currentUser.prenom} {currentUser.nom}</p>
+                <p className="text-xs text-gray-500">{title}</p>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {children}
+      </div>
+    </div>
+  );
+
+  // Composant Cloud Storage
+  const CloudStorageView = () => {
+    const [viewMode, setViewMode] = useState('grid');
+    const [filterCategory, setFilterCategory] = useState('all');
+    const [showUpload, setShowUpload] = useState(false);
+    
+    const userFiles = cloudFiles.filter(f => 
+      (f.userId === currentUser.id && f.userType === userType) ||
+      f.sharedWith.some(s => s.id === currentUser.id && s.type === userType)
+    );
+
+    const filteredFiles = filterCategory === 'all' 
+      ? userFiles 
+      : userFiles.filter(f => f.category === filterCategory);
+
+    const storageUsed = getUserStorageUsed(currentUser.id, userType);
+    const storageQuota = currentUser.cloudQuota || 10 * 1024 * 1024 * 1024;
+    const storagePercentage = Math.round((storageUsed / storageQuota) * 100);
+
+    return (
+      <div className="space-y-6">
+        {/* Statistiques de stockage */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-blue-100 text-sm">Stockage utilisé</p>
+                <p className="text-3xl font-bold mt-2">{formatFileSize(storageUsed)}</p>
+              </div>
+              <HardDrive className="w-12 h-12 text-blue-200" />
+            </div>
+            <div className="w-full bg-blue-700 rounded-full h-2">
+              <div 
+                className="bg-white rounded-full h-2 transition-all" 
+                style={{ width: `${storagePercentage}%` }}
+              ></div>
+            </div>
+            <p className="text-blue-100 text-sm mt-2">{storagePercentage}% de {formatFileSize(storageQuota)}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm">Fichiers</p>
+                <p className="text-3xl font-bold mt-2">{userFiles.length}</p>
+              </div>
+              <File className="w-12 h-12 text-green-200" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Partagés</p>
+                <p className="text-3xl font-bold mt-2">{userFiles.filter(f => f.shared).length}</p>
+              </div>
+              <Share2 className="w-12 h-12 text-purple-200" />
+            </div>
+          </div>
+        </div>
+
+        {/* Nœuds de stockage */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">Infrastructure Cloud</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {cloudStorage.nodes.map(node => (
+              <div key={node.nodeId} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-800">{node.location}</h4>
+                    <p className="text-sm text-gray-600">{node.nodeId}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    node.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {node.status === 'active' ? 'Actif' : 'Inactif'}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600">Stockage</span>
+                      <span className="font-medium">{getStoragePercentage(node.nodeId)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 rounded-full h-2 transition-all" 
+                        style={{ width: `${getStoragePercentage(node.nodeId)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formatFileSize(node.usedStorage)} / {formatFileSize(node.totalStorage)}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Bande passante</span>
+                    <span className="font-medium">{node.bandwidth / 1000000} Mbps</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Gestionnaire de fichiers */}
+        <div className="bg-white rounded-xl shadow-lg">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">Mes Fichiers</h2>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setShowUpload(!showUpload)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Télécharger
+                </button>
+              </div>
+            </div>
+
+            {showUpload && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-blue-300 rounded-lg p-8 cursor-pointer hover:bg-blue-100 transition">
+                  <Cloud className="w-12 h-12 text-blue-500 mb-2" />
+                  <span className="text-sm text-gray-600">Cliquez pour sélectionner un fichier</span>
+                  <span className="text-xs text-gray-500 mt-1">ou glissez-déposez ici</span>
+                  <input 
+                    type="file" 
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
+                        simulateUpload(e.target.files[0]);
+                        setShowUpload(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Progression des uploads */}
+            {Object.keys(uploadProgress).length > 0 && (
+              <div className="mb-4 space-y-2">
+                {Object.entries(uploadProgress).map(([fileId, progress]) => (
+                  <div key={fileId} className="p-3 bg-yellow-50 rounded-lg">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-700">Téléchargement en cours...</span>
+                      <span className="font-medium">{Math.round((progress.current / progress.total) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-yellow-200 rounded-full h-2">
+                      <div 
+                        className="bg-yellow-600 rounded-full h-2 transition-all" 
+                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Chunk {progress.current} / {progress.total}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
+              <select 
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="all">Tous les fichiers</option>
+                <option value="cv">CV</option>
+                <option value="rapport">Rapports</option>
+                <option value="document">Documents</option>
+                <option value="image">Images</option>
+                <option value="video">Vidéos</option>
+              </select>
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+              >
+                Grille
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+              >
+                Liste
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {filteredFiles.length === 0 ? (
+              <div className="text-center py-12">
+                <Cloud className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Aucun fichier</p>
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {filteredFiles.map(file => (
+                  <div 
+                    key={file.id} 
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition cursor-pointer"
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="text-blue-500 mb-2">
+                        {getFileIcon(file.type)}
+                      </div>
+                      <p className="text-sm font-medium text-gray-800 text-center truncate w-full" title={file.name}>
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.size)}</p>
+                      {file.shared && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full mt-2">
+                          Partagé
+                        </span>
+                      )}
+                      <div className="flex space-x-1 mt-3">
+                        <button 
+                          onClick={() => alert(`Téléchargement de ${file.name}`)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const targetType = prompt('Type (etudiants/entreprises/encadreurs):');
+                            const targetId = parseInt(prompt('ID utilisateur:'));
+                            if (targetType && targetId) shareFile(file.id, targetId, targetType);
+                          }}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm(`Supprimer ${file.name}?`)) deleteFile(file.id);
+                          }}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredFiles.map(file => (
+                  <div 
+                    key={file.id}
+                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="text-blue-500">
+                        {getFileIcon(file.type)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800">{file.name}</p>
+                        <div className="flex items-center space-x-3 text-xs text-gray-500">
+                          <span>{formatFileSize(file.size)}</span>
+                          <span>•</span>
+                          <span>{file.uploadDate}</span>
+                          <span>•</span>
+                          <span>{file.nodeId}</span>
+                          {file.shared && (
+                            <>
+                              <span>•</span>
+                              <span className="text-green-600">Partagé</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => alert(`Aperçu de ${file.name}`)}
+                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => alert(`Téléchargement de ${file.name}`)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      >
+                        <Download className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const targetType = prompt('Type (etudiants/entreprises/encadreurs):');
+                          const targetId = parseInt(prompt('ID utilisateur:'));
+                          if (targetType && targetId) shareFile(file.id, targetId, targetType);
+                        }}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                      >
+                        <Share2 className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm(`Supprimer ${file.name}?`)) deleteFile(file.id);
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const EtudiantDashboard = () => {
+    const [activeTab, setActiveTab] = useState('stages');
+    const mesCandidatures = candidatures.filter(c => c.etudiantId === currentUser.id);
+    const mesRapports = rapports.filter(r => r.etudiantId === currentUser.id);
+
+    return (
+      <DashboardLayout title="Étudiant">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Stages disponibles</p>
+                  <p className="text-3xl font-bold mt-2">{stages.filter(s => s.statut === 'ouvert').length}</p>
+                </div>
+                <Search className="w-12 h-12 text-blue-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Candidatures</p>
+                  <p className="text-3xl font-bold mt-2">{mesCandidatures.length}</p>
+                </div>
+                <FileText className="w-12 h-12 text-green-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-yellow-100 text-sm">Acceptées</p>
+                  <p className="text-3xl font-bold mt-2">{mesCandidatures.filter(c => c.statut === 'accepte').length}</p>
+                </div>
+                <CheckCircle className="w-12 h-12 text-yellow-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm">Stockage Cloud</p>
+                  <p className="text-3xl font-bold mt-2">{formatFileSize(getUserStorageUsed(currentUser.id, userType))}</p>
+                </div>
+                <Cloud className="w-12 h-12 text-purple-200" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg">
+            <div className="border-b border-gray-200">
+              <div className="flex space-x-1 p-2 overflow-x-auto">
+                {['stages', 'candidatures', 'cloud', 'profil'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 rounded-lg font-medium transition whitespace-nowrap ${
+                      activeTab === tab ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab === 'cloud' ? 'Cloud Storage' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {activeTab === 'stages' && (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Offres de Stage</h2>
+                  {stages.filter(s => s.statut === 'ouvert').map(stage => {
+                    const entreprise = users.entreprises.find(e => e.id === stage.entrepriseId);
+                    const dejaCandidature = mesCandidatures.some(c => c.stageId === stage.id);
+                    
+                    return (
+                      <div key={stage.id} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{stage.titre}</h3>
+                            <div className="flex items-center text-gray-600 space-x-4 mb-3 text-sm">
+                              <span className="flex items-center">
+                                <Building2 className="w-4 h-4 mr-1" />
+                                {entreprise?.nom}
+                              </span>
+                              <span className="flex items-center">
+                                <MapPin className="w-4 h-4 mr-1" />
+                                {stage.ville}
+                              </span>
+                              <span>{stage.duree}</span>
+                            </div>
+                            <p className="text-gray-700 mb-3">{stage.description}</p>
+                            <p className="text-green-600 font-semibold">{stage.remuneration}</p>
+                          </div>
+                          <div className="ml-4">
+                            {dejaCandidature ? (
+                              <button className="px-6 py-3 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed">
+                                Déjà postulé
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  setCandidatures([...candidatures, {
+                                    id: candidatures.length + 1,
+                                    stageId: stage.id,
+                                    etudiantId: currentUser.id,
+                                    datePostulation: new Date().toISOString().split('T')[0],
+                                    statut: 'en_attente',
+                                    lettre: 'Lettre de motivation',
+                                    documents: ['cv.pdf']
+                                  }]);
+                                  alert('Candidature envoyée !');
+                                }}
+                                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                              >
+                                Postuler
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeTab === 'candidatures' && (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Mes Candidatures</h2>
+                  {mesCandidatures.map(cand => {
+                    const stage = stages.find(s => s.id === cand.stageId);
+                    const entreprise = users.entreprises.find(e => e.id === stage?.entrepriseId);
+                    
+                    return (
+                      <div key={cand.id} className="border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">{stage?.titre}</h3>
+                        <p className="text-gray-600 mb-3">{entreprise?.nom} - {stage?.ville}</p>
+                        <div className="flex items-center space-x-4 text-sm">
+                          <span>Postulé le: {cand.datePostulation}</span>
+                          <span className={`px-3 py-1 rounded-full ${
+                            cand.statut === 'accepte' ? 'bg-green-100 text-green-700' :
+                            cand.statut === 'refuse' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {cand.statut === 'accepte' ? 'Acceptée' : 
+                             cand.statut === 'refuse' ? 'Refusée' : 'En attente'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeTab === 'cloud' && <CloudStorageView />}
+
+              {activeTab === 'profil' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Mon Profil</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                      <input type="text" defaultValue={currentUser.nom} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                      <input type="text" defaultValue={currentUser.prenom} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                  </div>
+                  <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    Enregistrer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  };
+
+  const EntrepriseDashboard = () => {
+    const [activeTab, setActiveTab] = useState('offres');
+    const mesOffres = stages.filter(s => s.entrepriseId === currentUser.id);
+    const mesCandidatures = candidatures.filter(c => mesOffres.some(o => o.id === c.stageId));
+
+    return (
+      <DashboardLayout title="Entreprise">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-indigo-100 text-sm">Offres actives</p>
+                  <p className="text-3xl font-bold mt-2">{mesOffres.length}</p>
+                </div>
+                <FileText className="w-12 h-12 text-indigo-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-pink-100 text-sm">Candidatures</p>
+                  <p className="text-3xl font-bold mt-2">{mesCandidatures.length}</p>
+                </div>
+                <Users className="w-12 h-12 text-pink-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm">À traiter</p>
+                  <p className="text-3xl font-bold mt-2">{mesCandidatures.filter(c => c.statut === 'en_attente').length}</p>
+                </div>
+                <Clock className="w-12 h-12 text-orange-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-teal-100 text-sm">Cloud Storage</p>
+                  <p className="text-3xl font-bold mt-2">{formatFileSize(getUserStorageUsed(currentUser.id, userType))}</p>
+                </div>
+                <Cloud className="w-12 h-12 text-teal-200" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg">
+            <div className="border-b border-gray-200">
+              <div className="flex space-x-1 p-2 overflow-x-auto">
+                {['offres', 'candidatures', 'cloud', 'profil'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 rounded-lg font-medium transition whitespace-nowrap ${
+                      activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab === 'cloud' ? 'Cloud Storage' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {activeTab === 'offres' && (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Mes Offres</h2>
+                  {mesOffres.map(stage => (
+                    <div key={stage.id} className="border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">{stage.titre}</h3>
+                      <p className="text-gray-600">{stage.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'candidatures' && (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Candidatures Reçues</h2>
+                  {mesCandidatures.map(cand => {
+                    const etudiant = users.etudiants.find(e => e.id === cand.etudiantId);
+                    return (
+                      <div key={cand.id} className="border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-800">{etudiant?.prenom} {etudiant?.nom}</h3>
+                        <p className="text-gray-600">{etudiant?.universite}</p>
+                        {cand.statut === 'en_attente' && (
+                          <div className="flex space-x-2 mt-4">
+                            <button 
+                              onClick={() => {
+                                setCandidatures(candidatures.map(c => 
+                                  c.id === cand.id ? {...c, statut: 'accepte'} : c
+                                ));
+                                alert('Candidature acceptée');
+                              }}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            >
+                              Accepter
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setCandidatures(candidatures.map(c => 
+                                  c.id === cand.id ? {...c, statut: 'refuse'} : c
+                                ));
+                                alert('Candidature refusée');
+                              }}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                              Refuser
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeTab === 'cloud' && <CloudStorageView />}
+
+              {activeTab === 'profil' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Profil Entreprise</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                      <input type="text" defaultValue={currentUser.nom} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                  </div>
+                  <button className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    Enregistrer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  };
+
+  const AdminDashboard = () => {
+    const [activeTab, setActiveTab] = useState('stats');
+    const totalStorage = cloudStorage.nodes.reduce((sum, node) => sum + node.totalStorage, 0);
+    const usedStorage = cloudStorage.nodes.reduce((sum, node) => sum + node.usedStorage, 0);
+
+    return (
+      <DashboardLayout title="Administrateur">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-red-100 text-sm">Utilisateurs</p>
+                  <p className="text-3xl font-bold mt-2">{Object.values(users).reduce((sum, arr) => sum + arr.length, 0)}</p>
+                </div>
+                <Users className="w-12 h-12 text-red-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Fichiers Cloud</p>
+                  <p className="text-3xl font-bold mt-2">{cloudFiles.length}</p>
+                </div>
+                <Cloud className="w-12 h-12 text-blue-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Stockage Total</p>
+                  <p className="text-3xl font-bold mt-2">{formatFileSize(totalStorage)}</p>
+                </div>
+                <HardDrive className="w-12 h-12 text-green-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm">Utilisé</p>
+                  <p className="text-3xl font-bold mt-2">{Math.round((usedStorage / totalStorage) * 100)}%</p>
+                </div>
+                <Activity className="w-12 h-12 text-purple-200" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg">
+            <div className="border-b border-gray-200">
+              <div className="flex space-x-1 p-2">
+                {['stats', 'cloud', 'users'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 rounded-lg font-medium transition ${
+                      activeTab === tab ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {activeTab === 'stats' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Statistiques Cloud</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-6 border border-gray-200 rounded-xl">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Nœuds de Stockage</h3>
+                      {cloudStorage.nodes.map(node => (
+                        <div key={node.nodeId} className="mb-4">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">{node.location}</span>
+                            <span className="text-sm">{getStoragePercentage(node.nodeId)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 rounded-full h-2" 
+                              style={{ width: `${getStoragePercentage(node.nodeId)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-6 border border-gray-200 rounded-xl">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Types de Fichiers</h3>
+                      <div className="space-y-2">
+                        {['document', 'image', 'rapport', 'cv'].map(cat => (
+                          <div key={cat} className="flex justify-between">
+                            <span className="text-gray-600">{cat.toUpperCase()}</span>
+                            <span className="font-bold">{cloudFiles.filter(f => f.category === cat).length}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>

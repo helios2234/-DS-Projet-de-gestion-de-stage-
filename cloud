@@ -67,7 +67,6 @@ const StageManagementSystem = () => {
       status: 'completed'
     },
     { 
-      id: 3, 
       name: 'Lettre_Motivation.pdf', 
       size: 1.8 * 1024 * 1024,
       type: 'application/pdf',

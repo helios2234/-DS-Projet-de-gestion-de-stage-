@@ -43,7 +43,7 @@ const StageManagementSystem = () => {
   ]);
 
   const handleLogin = (email, password, type) => {
-    const userList = users[type];
+  
     const user = userList?.find(u => u.email === email);
     if (user) {
       setCurrentUser(user);

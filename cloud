@@ -9,7 +9,7 @@ const StageManagementSystem = () => {
   const [cloudStorage, setCloudStorage] = useState({
     nodes: [
       {
-        nodeId: 'node-yaoundé-1',
+     
         totalStorage: 100 * 1024 * 1024 * 1024, // 100 GB en bytes
         usedStorage: 35 * 1024 * 1024 * 1024, // 35 GB utilisés
         bandwidth: 100 * 1000000, // 100 Mbps en bits/sec

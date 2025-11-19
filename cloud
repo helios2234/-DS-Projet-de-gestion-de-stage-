@@ -27,7 +27,7 @@ const StageManagementSystem = () => {
         status: 'active'
       }
     ],
-    activeTransfers: {},
+
     storedFiles: {}
   });
 

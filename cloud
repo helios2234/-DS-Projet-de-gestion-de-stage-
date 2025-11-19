@@ -24,7 +24,7 @@ const StageManagementSystem = () => {
         bandwidth: 150 * 1000000,
         networkUtilization: 0,
         location: 'Douala',
-        status: 'active'
+     
       }
     ],
 

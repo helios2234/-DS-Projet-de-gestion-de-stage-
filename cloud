@@ -28,7 +28,7 @@ const StageManagementSystem = () => {
       }
     ],
 
-    storedFiles: {}
+  
   });
 
   const [cloudFiles, setCloudFiles] = useState([

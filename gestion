@@ -58,7 +58,7 @@ const StageManagementSystem = () => {
     setUserType(null);
   };
 
-  if (!currentUser) {
+ 
     return <LoginPage />;
   }
 

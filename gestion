@@ -59,7 +59,7 @@ const StageManagementSystem = () => {
   };
 
  
-    return <LoginPage />;
+ 
   }
 
   function LoginPage() {

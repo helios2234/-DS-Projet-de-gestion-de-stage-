@@ -5,7 +5,7 @@ const StageManagementSystem = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userType, setUserType] = useState(null);
 
-    etudiants: [
+  
       { id: 1, nom: 'Kamga', prenom: 'Marie', email: 'marie.kamga@student.cm', tel: '+237 670 123 456', universite: 'Université de Yaoundé I', niveau: 'Licence 3', filiere: 'Informatique', ville: 'Yaoundé', cv: 'cv_marie.pdf', statut: 'actif' },
       { id: 2, nom: 'Nkolo', prenom: 'Paul', email: 'paul.nkolo@student.cm', tel: '+237 680 234 567', universite: 'Université de Douala', niveau: 'Master 1', filiere: 'Gestion', ville: 'Douala', cv: 'cv_paul.pdf', statut: 'actif' }
     ],

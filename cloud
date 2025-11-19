@@ -15,7 +15,7 @@ const StageManagementSystem = () => {
         bandwidth: 100 * 1000000, // 100 Mbps en bits/sec
         networkUtilization: 0,
         location: 'Yaoundé',
-        status: 'active'
+       
       },
       {
         nodeId: 'node-douala-1',

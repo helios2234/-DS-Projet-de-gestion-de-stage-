@@ -55,7 +55,7 @@ const StageManagementSystem = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setUserType(null);
+ 
   };
 
  

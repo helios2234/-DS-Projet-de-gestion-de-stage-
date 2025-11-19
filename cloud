@@ -14,7 +14,7 @@ const StageManagementSystem = () => {
         usedStorage: 35 * 1024 * 1024 * 1024, // 35 GB utilisés
         bandwidth: 100 * 1000000, // 100 Mbps en bits/sec
         networkUtilization: 0,
-        location: 'Yaoundé',
+     
        
       },
       {

@@ -1,0 +1,499 @@
+# ============================================
+# .github/workflows/ci-cd.yaml (GitHub Actions)
+# ============================================
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/services/**'
+      - 'frontend/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: internship-cluster
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  # ==================== CODE QUALITY ====================
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy pylint
+
+      - name: Run Black (formatting)
+        run: black --check backend/
+
+      - name: Run isort (import sorting)
+        run: isort --check-only backend/
+
+      - name: Run Flake8 (linting)
+        run: flake8 backend/ --max-line-length=100 --ignore=E501,W503
+
+      - name: Run MyPy (type checking)
+        run: mypy backend/ --ignore-missing-imports
+
+      - name: Run Pylint
+        run: pylint backend/services/*/app/ --fail-under=8.0
+
+  # ==================== SECURITY SCAN ====================
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Bandit (Python security)
+        run: |
+          pip install bandit
+          bandit -r backend/ -f json -o bandit-report.json
+
+      - name: Run Safety (dependency check)
+        run: |
+          pip install safety
+          safety check --json
+
+      - name: Run Trivy (vulnerability scanner)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'internship-system'
+          path: '.'
+          format: 'HTML'
+
+  # ==================== UNIT TESTS ====================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth-service, student-service, offers-service]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend/services/${{ matrix.service }}
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run unit tests
+        run: |
+          cd backend/services/${{ matrix.service }}
+          pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=html
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: backend/services/${{ matrix.service }}/coverage.xml
+          flags: ${{ matrix.service }}
+
+  # ==================== INTEGRATION TESTS ====================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend/services/auth-service
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          cd backend/services/auth-service
+          pytest tests/integration/ -v
+
+  # ==================== BUILD & PUSH ====================
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [code-quality, security-scan, unit-tests, integration-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - student-service
+          - enterprise-service
+          - university-service
+          - offers-service
+          - applications-service
+          - internships-service
+          - documents-service
+          - notifications-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services/${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+
+  # ==================== DEPLOY TO STAGING ====================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging-api.internship-system.cm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Deploy to Staging
+        run: |
+          # Update image tags in deployments
+          kubectl set image deployment/auth-service \
+            auth-service=${{ env.ECR_REGISTRY }}/auth-service:${{ github.sha }} \
+            -n internship-staging
+          
+          kubectl set image deployment/student-service \
+            student-service=${{ env.ECR_REGISTRY }}/student-service:${{ github.sha }} \
+            -n internship-staging
+          
+          # Wait for rollout
+          kubectl rollout status deployment/auth-service -n internship-staging --timeout=5m
+          kubectl rollout status deployment/student-service -n internship-staging --timeout=5m
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          curl -f https://staging-api.internship-system.cm/health || exit 1
+
+  # ==================== DEPLOY TO PRODUCTION ====================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://api.internship-system.cm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Blue-Green Deployment
+        run: |
+          # Deploy new version (green)
+          kubectl set image deployment/auth-service \
+            auth-service=${{ env.ECR_REGISTRY }}/auth-service:${{ github.sha }} \
+            -n internship-prod
+          
+          # Wait for rollout
+          kubectl rollout status deployment/auth-service -n internship-prod --timeout=10m
+          
+          # Verify health
+          kubectl get pods -n internship-prod -l app=auth-service
+          
+          # Run smoke tests
+          curl -f https://api.internship-system.cm/health || exit 1
+
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment completed'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+  # ==================== ROLLBACK ====================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Rollback deployments
+        run: |
+          kubectl rollout undo deployment/auth-service -n internship-prod
+          kubectl rollout undo deployment/student-service -n internship-prod
+
+# ============================================
+# .gitlab-ci.yml (GitLab CI Alternative)
+# ============================================
+stages:
+  - test
+  - build
+  - deploy-staging
+  - deploy-production
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  AWS_DEFAULT_REGION: us-east-1
+  EKS_CLUSTER_NAME: internship-cluster
+
+# ==================== TEST STAGE ====================
+test:unit:
+  stage: test
+  image: python:3.11
+  services:
+    - postgres:15
+    - redis:7-alpine
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: test
+    DATABASE_URL: postgresql://postgres:test@postgres:5432/test_db
+  script:
+    - cd backend/services/auth-service
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov pytest-asyncio
+    - pytest tests/ -v --cov=app --cov-report=xml
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/services/auth-service/coverage.xml
+
+test:security:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install bandit safety
+    - bandit -r backend/ -f json -o bandit-report.json
+    - safety check
+  artifacts:
+    reports:
+      sast: bandit-report.json
+
+# ==================== BUILD STAGE ====================
+build:services:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+  script:
+    - |
+      for service in auth-service student-service offers-service; do
+        docker build -t $ECR_REGISTRY/$service:$CI_COMMIT_SHA ./backend/services/$service
+        docker push $ECR_REGISTRY/$service:$CI_COMMIT_SHA
+      done
+  only:
+    - main
+    - develop
+
+# ==================== DEPLOY STAGING ====================
+deploy:staging:
+  stage: deploy-staging
+  image: alpine/k8s:1.28.0
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_DEFAULT_REGION
+  script:
+    - kubectl set image deployment/auth-service auth-service=$ECR_REGISTRY/auth-service:$CI_COMMIT_SHA -n internship-staging
+    - kubectl rollout status deployment/auth-service -n internship-staging --timeout=5m
+  environment:
+    name: staging
+    url: https://staging-api.internship-system.cm
+  only:
+    - develop
+
+# ==================== DEPLOY PRODUCTION ====================
+deploy:production:
+  stage: deploy-production
+  image: alpine/k8s:1.28.0
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_DEFAULT_REGION
+  script:
+    - kubectl set image deployment/auth-service auth-service=$ECR_REGISTRY/auth-service:$CI_COMMIT_SHA -n internship-prod
+    - kubectl rollout status deployment/auth-service -n internship-prod --timeout=10m
+  environment:
+    name: production
+    url: https://api.internship-system.cm
+  when: manual
+  only:
+    - main
+
+# ============================================
+# Makefile - Helper Commands
+# ============================================
+.PHONY: help build test deploy
+
+help:
+	@echo "Available targets:"
+	@echo "  build          - Build all Docker images"
+	@echo "  test           - Run all tests"
+	@echo "  deploy-staging - Deploy to staging"
+	@echo "  deploy-prod    - Deploy to production"
+	@echo "  rollback       - Rollback last deployment"
+
+build:
+	@echo "Building Docker images..."
+	docker-compose -f infrastructure/docker/docker-compose.yml build
+
+test:
+	@echo "Running tests..."
+	pytest backend/services/auth-service/tests/ -v
+
+deploy-staging:
+	@echo "Deploying to staging..."
+	kubectl apply -f infrastructure/kubernetes/ -n internship-staging
+
+deploy-prod:
+	@echo "Deploying to production..."
+	kubectl apply -f infrastructure/kubernetes/ -n internship-prod
+
+rollback:
+	@echo "Rolling back..."
+	kubectl rollout undo deployment/auth-service -n internship-prod

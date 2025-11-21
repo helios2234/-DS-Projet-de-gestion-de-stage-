@@ -1,0 +1,312 @@
+internship-management-system/
+│
+├── backend/
+│   ├── services/
+│   │   ├── auth-service/
+│   │   │   ├── app/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── main.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── api/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── v1/
+│   │   │   │   │   │   ├── __init__.py
+│   │   │   │   │   │   ├── endpoints/
+│   │   │   │   │   │   │   ├── auth.py
+│   │   │   │   │   │   │   ├── users.py
+│   │   │   │   │   │   └── router.py
+│   │   │   │   ├── core/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── security.py
+│   │   │   │   │   ├── config.py
+│   │   │   │   │   └── dependencies.py
+│   │   │   │   ├── models/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── user.py
+│   │   │   │   │   └── token.py
+│   │   │   │   ├── schemas/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── user.py
+│   │   │   │   │   └── token.py
+│   │   │   │   ├── services/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── auth_service.py
+│   │   │   │   │   └── user_service.py
+│   │   │   │   ├── repositories/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── user_repository.py
+│   │   │   │   ├── db/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── database.py
+│   │   │   │   │   └── session.py
+│   │   │   │   └── utils/
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── email.py
+│   │   │   │       └── helpers.py
+│   │   │   ├── tests/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── conftest.py
+│   │   │   │   ├── unit/
+│   │   │   │   │   └── test_auth.py
+│   │   │   │   └── integration/
+│   │   │   │       └── test_api.py
+│   │   │   ├── alembic/
+│   │   │   │   ├── versions/
+│   │   │   │   └── env.py
+│   │   │   ├── Dockerfile
+│   │   │   ├── requirements.txt
+│   │   │   ├── .env.example
+│   │   │   └── README.md
+│   │   │
+│   │   ├── student-service/
+│   │   │   ├── app/
+│   │   │   │   ├── api/
+│   │   │   │   ├── core/
+│   │   │   │   ├── models/
+│   │   │   │   ├── schemas/
+│   │   │   │   ├── services/
+│   │   │   │   ├── repositories/
+│   │   │   │   ├── db/
+│   │   │   │   └── main.py
+│   │   │   ├── tests/
+│   │   │   ├── Dockerfile
+│   │   │   └── requirements.txt
+│   │   │
+│   │   ├── enterprise-service/
+│   │   │   └── [same structure]
+│   │   │
+│   │   ├── university-service/
+│   │   │   └── [same structure]
+│   │   │
+│   │   ├── offers-service/
+│   │   │   └── [same structure]
+│   │   │
+│   │   ├── applications-service/
+│   │   │   └── [same structure]
+│   │   │
+│   │   ├── internships-service/
+│   │   │   └── [same structure]
+│   │   │
+│   │   ├── documents-service/
+│   │   │   ├── app/
+│   │   │   │   ├── api/
+│   │   │   │   ├── services/
+│   │   │   │   │   ├── storage_service.py
+│   │   │   │   │   ├── pdf_service.py
+│   │   │   │   │   └── certificate_generator.py
+│   │   │   │   └── main.py
+│   │   │   ├── templates/
+│   │   │   │   ├── certificate_template.html
+│   │   │   │   └── attestation_template.html
+│   │   │   └── [rest similar]
+│   │   │
+│   │   └── notifications-service/
+│   │       ├── app/
+│   │       │   ├── api/
+│   │       │   ├── services/
+│   │       │   │   ├── email_service.py
+│   │       │   │   ├── push_service.py
+│   │       │   │   └── template_service.py
+│   │       │   ├── workers/
+│   │       │   │   └── notification_worker.py
+│   │       │   └── main.py
+│   │       └── [rest similar]
+│   │
+│   ├── shared/
+│   │   ├── __init__.py
+│   │   ├── middleware/
+│   │   │   ├── auth_middleware.py
+│   │   │   ├── logging_middleware.py
+│   │   │   └── cors_middleware.py
+│   │   ├── utils/
+│   │   │   ├── jwt_utils.py
+│   │   │   ├── cache_utils.py
+│   │   │   ├── message_broker.py
+│   │   │   └── http_client.py
+│   │   ├── exceptions/
+│   │   │   ├── base.py
+│   │   │   └── http_exceptions.py
+│   │   └── schemas/
+│   │       └── common.py
+│   │
+│   └── api-gateway/
+│       ├── kong.yml
+│       ├── docker-compose.gateway.yml
+│       └── README.md
+│
+├── frontend/
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── favicon.ico
+│   │   └── assets/
+│   │
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── vite-env.d.ts
+│   │   │
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Input.tsx
+│   │   │   │   ├── Card.tsx
+│   │   │   │   ├── Modal.tsx
+│   │   │   │   ├── Navbar.tsx
+│   │   │   │   └── Footer.tsx
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginForm.tsx
+│   │   │   │   └── RegisterForm.tsx
+│   │   │   ├── student/
+│   │   │   │   ├── StudentDashboard.tsx
+│   │   │   │   ├── ProfileForm.tsx
+│   │   │   │   ├── ApplicationsList.tsx
+│   │   │   │   └── InternshipCard.tsx
+│   │   │   ├── enterprise/
+│   │   │   │   ├── EnterpriseDashboard.tsx
+│   │   │   │   ├── OfferForm.tsx
+│   │   │   │   └── ApplicationsManager.tsx
+│   │   │   ├── university/
+│   │   │   │   ├── UniversityDashboard.tsx
+│   │   │   │   └── SupervisorPanel.tsx
+│   │   │   └── offers/
+│   │   │       ├── OffersList.tsx
+│   │   │       ├── OfferDetail.tsx
+│   │   │       └── OfferSearch.tsx
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Home.tsx
+│   │   │   ├── Login.tsx
+│   │   │   ├── Register.tsx
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── Offers.tsx
+│   │   │   ├── Applications.tsx
+│   │   │   ├── Internships.tsx
+│   │   │   └── Profile.tsx
+│   │   │
+│   │   ├── store/
+│   │   │   ├── index.ts
+│   │   │   ├── slices/
+│   │   │   │   ├── authSlice.ts
+│   │   │   │   ├── studentSlice.ts
+│   │   │   │   ├── offersSlice.ts
+│   │   │   │   └── notificationsSlice.ts
+│   │   │   └── api/
+│   │   │       ├── baseApi.ts
+│   │   │       ├── authApi.ts
+│   │   │       ├── studentApi.ts
+│   │   │       └── offersApi.ts
+│   │   │
+│   │   ├── hooks/
+│   │   │   ├── useAuth.ts
+│   │   │   ├── useNotifications.ts
+│   │   │   └── useDebounce.ts
+│   │   │
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   ├── auth.service.ts
+│   │   │   └── storage.service.ts
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── validators.ts
+│   │   │   ├── formatters.ts
+│   │   │   └── constants.ts
+│   │   │
+│   │   ├── types/
+│   │   │   ├── auth.types.ts
+│   │   │   ├── student.types.ts
+│   │   │   ├── offer.types.ts
+│   │   │   └── common.types.ts
+│   │   │
+│   │   └── styles/
+│   │       ├── globals.css
+│   │       ├── variables.css
+│   │       └── theme.ts
+│   │
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   ├── Dockerfile
+│   └── .env.example
+│
+├── infrastructure/
+│   ├── docker/
+│   │   ├── docker-compose.yml
+│   │   ├── docker-compose.dev.yml
+│   │   ├── docker-compose.prod.yml
+│   │   └── .env.example
+│   │
+│   ├── kubernetes/
+│   │   ├── namespaces/
+│   │   │   └── internship-system.yaml
+│   │   ├── configmaps/
+│   │   │   └── app-config.yaml
+│   │   ├── secrets/
+│   │   │   └── app-secrets.yaml
+│   │   ├── deployments/
+│   │   │   ├── auth-service.yaml
+│   │   │   ├── student-service.yaml
+│   │   │   └── [other services...]
+│   │   ├── services/
+│   │   │   ├── auth-service-svc.yaml
+│   │   │   └── [other services...]
+│   │   ├── ingress/
+│   │   │   └── ingress.yaml
+│   │   ├── persistent-volumes/
+│   │   │   ├── postgres-pv.yaml
+│   │   │   └── minio-pv.yaml
+│   │   └── helm/
+│   │       └── internship-system/
+│   │           ├── Chart.yaml
+│   │           ├── values.yaml
+│   │           └── templates/
+│   │
+│   ├── terraform/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── outputs.tf
+│   │   └── modules/
+│   │       ├── vpc/
+│   │       ├── eks/
+│   │       └── rds/
+│   │
+│   └── monitoring/
+│       ├── prometheus/
+│       │   └── prometheus.yml
+│       ├── grafana/
+│       │   └── dashboards/
+│       └── alertmanager/
+│           └── alertmanager.yml
+│
+├── scripts/
+│   ├── init-db.sh
+│   ├── backup-db.sh
+│   ├── deploy.sh
+│   ├── seed-data.py
+│   └── migration.sh
+│
+├── docs/
+│   ├── api/
+│   │   ├── auth-service.md
+│   │   ├── student-service.md
+│   │   └── [other services...]
+│   ├── architecture/
+│   │   ├── system-overview.md
+│   │   ├── database-schema.md
+│   │   └── deployment.md
+│   ├── guides/
+│   │   ├── getting-started.md
+│   │   ├── development.md
+│   │   └── deployment.md
+│   └── postman/
+│       └── internship-system.postman_collection.json
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       ├── cd.yml
+│       └── tests.yml
+│
+├── .gitignore
+├── README.md
+├── LICENSE
+└── CONTRIBUTING.md

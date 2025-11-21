@@ -1,0 +1,650 @@
+# ============================================
+# 01-namespace.yaml
+# ============================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: internship-prod
+  labels:
+    name: internship-prod
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: internship-staging
+  labels:
+    name: internship-staging
+    environment: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+
+# ============================================
+# 02-network-policy.yaml
+# ============================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: internship-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-ingress
+  namespace: internship-prod
+spec:
+  podSelector:
+    matchLabels:
+      tier: backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-services
+  namespace: internship-prod
+spec:
+  podSelector:
+    matchLabels:
+      tier: backend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+
+# ============================================
+# 03-configmap.yaml
+# ============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: internship-prod
+data:
+  # Application Configuration
+  API_V1_PREFIX: "/api/v1"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  
+  # Service URLs (internal)
+  AUTH_SERVICE_URL: "http://auth-service:8001"
+  STUDENT_SERVICE_URL: "http://student-service:8002"
+  ENTERPRISE_SERVICE_URL: "http://enterprise-service:8003"
+  UNIVERSITY_SERVICE_URL: "http://university-service:8004"
+  OFFERS_SERVICE_URL: "http://offers-service:8005"
+  APPLICATIONS_SERVICE_URL: "http://applications-service:8006"
+  INTERNSHIPS_SERVICE_URL: "http://internships-service:8007"
+  DOCUMENTS_SERVICE_URL: "http://documents-service:8008"
+  NOTIFICATIONS_SERVICE_URL: "http://notifications-service:8009"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis-cluster"
+  REDIS_PORT: "6379"
+  
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq-cluster"
+  RABBITMQ_PORT: "5672"
+  
+  # Database Configuration (host only, credentials in secrets)
+  DATABASE_HOST: "internship-db.c9xyz.us-east-1.rds.amazonaws.com"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "internship_db"
+  
+  # MinIO Configuration
+  MINIO_ENDPOINT: "minio-service:9000"
+  MINIO_BUCKET: "internship-documents"
+  MINIO_USE_SSL: "false"
+  
+  # CORS Configuration
+  ALLOWED_ORIGINS: "https://internship-system.cm,https://www.internship-system.cm"
+
+# ============================================
+# 04-secrets.yaml (Template - Use External Secrets Operator)
+# ============================================
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: aws-secrets-manager
+  namespace: internship-prod
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-1
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: external-secrets-sa
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: app-secrets
+  namespace: internship-prod
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: SecretStore
+  target:
+    name: app-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: DATABASE_PASSWORD
+    remoteRef:
+      key: internship/prod/database
+      property: password
+  - secretKey: JWT_SECRET_KEY
+    remoteRef:
+      key: internship/prod/auth
+      property: jwt_secret
+  - secretKey: REDIS_PASSWORD
+    remoteRef:
+      key: internship/prod/redis
+      property: password
+  - secretKey: RABBITMQ_PASSWORD
+    remoteRef:
+      key: internship/prod/rabbitmq
+      property: password
+  - secretKey: MINIO_ACCESS_KEY
+    remoteRef:
+      key: internship/prod/minio
+      property: access_key
+  - secretKey: MINIO_SECRET_KEY
+    remoteRef:
+      key: internship/prod/minio
+      property: secret_key
+  - secretKey: SMTP_PASSWORD
+    remoteRef:
+      key: internship/prod/smtp
+      property: password
+
+# ============================================
+# 05-service-account.yaml
+# ============================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: auth-service-sa
+  namespace: internship-prod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/auth-service-role
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: documents-service-sa
+  namespace: internship-prod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/documents-service-role
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-sa
+  namespace: internship-prod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/external-secrets-role
+
+# ============================================
+# 06-auth-service-deployment.yaml
+# ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: internship-prod
+  labels:
+    app: auth-service
+    tier: backend
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        tier: backend
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: auth-service-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: auth-service
+        image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8001
+          name: http
+          protocol: TCP
+        env:
+        # ConfigMap references
+        - name: API_V1_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: API_V1_PREFIX
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ENVIRONMENT
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DATABASE_HOST
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DATABASE_PORT
+        - name: DATABASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DATABASE_NAME
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_HOST
+        # Secret references
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DATABASE_PASSWORD
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET_KEY
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        # Construct DATABASE_URL
+        - name: DATABASE_URL
+          value: "postgresql+asyncpg://postgres:$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - auth-service
+              topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: internship-prod
+  labels:
+    app: auth-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http
+  selector:
+    app: auth-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-service-hpa
+  namespace: internship-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+
+# ============================================
+# 07-redis-statefulset.yaml
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: internship-prod
+  labels:
+    app: redis
+spec:
+  clusterIP: None
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: internship-prod
+spec:
+  serviceName: redis-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --appendonly
+        - "yes"
+        - --cluster-enabled
+        - "yes"
+        - --cluster-config-file
+        - /data/nodes.conf
+        - --cluster-node-timeout
+        - "5000"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        ports:
+        - containerPort: 6379
+          name: redis
+        - containerPort: 16379
+          name: cluster-bus
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 10Gi
+
+# ============================================
+# 08-ingress.yaml
+# ============================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internship-ingress
+  namespace: internship-prod
+  annotations:
+    # NGINX Ingress Controller
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://internship-system.cm"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+spec:
+  tls:
+  - hosts:
+    - api.internship-system.cm
+    secretName: internship-tls
+  rules:
+  - host: api.internship-system.cm
+    http:
+      paths:
+      - path: /api/v1/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 8001
+      - path: /api/v1/students
+        pathType: Prefix
+        backend:
+          service:
+            name: student-service
+            port:
+              number: 8002
+      - path: /api/v1/enterprises
+        pathType: Prefix
+        backend:
+          service:
+            name: enterprise-service
+            port:
+              number: 8003
+      - path: /api/v1/universities
+        pathType: Prefix
+        backend:
+          service:
+            name: university-service
+            port:
+              number: 8004
+      - path: /api/v1/offers
+        pathType: Prefix
+        backend:
+          service:
+            name: offers-service
+            port:
+              number: 8005
+      - path: /api/v1/applications
+        pathType: Prefix
+        backend:
+          service:
+            name: applications-service
+            port:
+              number: 8006
+      - path: /api/v1/internships
+        pathType: Prefix
+        backend:
+          service:
+            name: internships-service
+            port:
+              number: 8007
+      - path: /api/v1/documents
+        pathType: Prefix
+        backend:
+          service:
+            name: documents-service
+            port:
+              number: 8008
+      - path: /api/v1/notifications
+        pathType: Prefix
+        backend:
+          service:
+            name: notifications-service
+            port:
+              number: 8009
+
+# ============================================
+# 09-pod-disruption-budget.yaml
+# ============================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: internship-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: auth-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: offers-service-pdb
+  namespace: internship-prod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: offers-service
+
+# ============================================
+# 10-priority-class.yaml
+# ============================================
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 1000
+globalDefault: false
+description: "High priority for critical services"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: medium-priority
+value: 500
+globalDefault: true
+description: "Medium priority for standard services"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 100
+globalDefault: false
+description: "Low priority for background jobs"
